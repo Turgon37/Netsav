@@ -36,10 +36,10 @@ import threading
 import time
 
 # Projet Imports
-from netsav.configparser import NetsavConfigParser
-from netsav.trigger.trigger import TriggerLoader
-from netsav.server.server import Server
-from netsav.client.client import Client
+from config import NetsavConfigParser
+from trigger.trigger import TriggerLoader
+from server.server import Server
+from client.client import Client
 
 # Global project declarations
 system_logger = logging.getLogger('netsav')
@@ -362,8 +362,9 @@ class Netsav:
       return None
     if self._trigger is None :
       t = TriggerLoader('Trigger', configparser = self._configparser)
-      if t.load():
-        self._trigger = t
+      if not t.load():
+        system_logger.warning('No trigger loaded, all event will be drop')
+      self._trigger = t
     return self._trigger
 
   ###

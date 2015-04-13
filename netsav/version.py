@@ -25,6 +25,8 @@
 """This file contain the program version and release notes
 
 versions_notes :
+  version 1.2 : 2015-02-11
+    +change import path dir and fix error to put netsav program in a debian package
   version 1.1 : 2015-02-08
     +add a queue for store trigger event, allow more multiple client to make event simultaneous
       it(s now the server thread who run trig one by one
@@ -32,4 +34,4 @@ versions_notes :
   version 1.0 : 2015-01-29
     first release
 """
-version = '1.1'
+version = '1.2'

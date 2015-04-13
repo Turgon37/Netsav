@@ -76,7 +76,7 @@ class TriggerLoader:
         continue
       # import process
       try:
-        m = __import__('netsav.trigger.'+trig_name, fromlist = ['Trigger'])
+        m = __import__('trigger.'+trig_name, fromlist = ['Trigger'])
         #import netsav.trigger.mail as m
         t = m.Trigger()
         if not isinstance(t, TriggerHandler):

@@ -36,6 +36,7 @@ import logging
 import sys
 
 # Projet Import
+sys.path.insert(1, "/usr/share/netsav")
 import netsav
 
 class NetsavLauncher:
@@ -52,7 +53,7 @@ class NetsavLauncher:
     self._argv = None
     self._conf = dict()
     self._conf['background'] = False
-    self._conf['pidfile'] = '/var/run/netsav/netsav.pid'
+    self._conf['pidfile'] = '/var/run/netsav.pid'
     self._conf['configfile'] = '/etc/netsav.conf'
     self._conf['log_level'] = 'INFO'
 

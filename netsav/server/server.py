@@ -27,7 +27,7 @@ import logging
 from socket import error as Error
 
 # Projet Imports
-from ..httpteepotreply.httpteepotreply.httpteepotreply import HttpTeepotReply
+from httpteepotreply.httpteepotreply import HttpTeepotReply
 
 # Global project declarations
 system_logger = logging.getLogger('netsav')
