@@ -90,4 +90,3 @@ mail.ssl = false
 
 ## Todo
   1. Test ssl conversation
-  2. add a timeout to smtpib instance in mail trigger

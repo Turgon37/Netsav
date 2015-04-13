@@ -30,7 +30,9 @@ several configuration keys in a dict
 """
 
 # System imports
+import grp
 import logging
+import pwd
 import re
 import sys
 
@@ -123,7 +125,7 @@ class NetsavConfigParser(ConfigParser):
         c_list.append(sect)
     return c_list
 
-  def getLogLevel(self, default = 'INFO'):
+  def getOptLogLevel(self, default = 'INFO'):
     """Return loglevel option from configuration file
     
     @param(string) default : the default value to return if nothing is found
@@ -145,7 +147,7 @@ class NetsavConfigParser(ConfigParser):
       else:
         return config_dict['log_level']
 
-  def getLogTarget(self, default = 'STDOUT'):
+  def getOptLogTarget(self, default = 'STDOUT'):
     """Return logtarget option
     
     @param(string) default : the default value to return if nothing is found
@@ -167,6 +169,38 @@ class NetsavConfigParser(ConfigParser):
     """
     return self._getBooleanFromSection(self.MAIN_SECTION,
                                           'ignore_own')
+                                          
+  def getOptUid(self):
+    """Return the uid (int) option from configfile
+    
+    @return(int/None): integer : the numeric value of 
+                        None: if group is not defined
+    """
+    user = self.get(self.MAIN_SECTION, 'user', fallback = None)
+    if not user:
+      return None
+    try:
+      return pwd.getpwnam(user).pw_uid
+    except KeyError:
+      system_logger.error("Incorrect username '%s' read in configuration file",
+                            user)
+      return None
+    
+  def getOptGid(self):
+    """Return the gid (int) option from configfile
+    
+    @return(int/None): integer : the numeric value of group id
+                        None: if group is not defined
+    """
+    group = self.get(self.MAIN_SECTION, 'group', fallback = None)
+    if not group:
+      return None
+    try:
+      return grp.getgrnam(group).gr_gid
+    except KeyError:
+      system_logger.error("Incorrect groupname '%s' read in configuration file",
+                            group)
+      return None
 
   def getServerConfigDict(self):
     """Return a minimal dict contains server bind parameters
@@ -319,7 +353,7 @@ class NetsavConfigParser(ConfigParser):
     @param(string) option : name of the section option from which to try to read an int
     @param(string) default : the default string to return if option is not declare
     @return(string) : value if it is correct
-                     None otherwise Get an integer value
+                     None if it is not a int
     """
     if option is None:
       return None

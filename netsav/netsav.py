@@ -33,6 +33,7 @@ import signal
 import socket
 import sys
 import threading
+import time
 
 # Projet Imports
 from netsav.configparser import NetsavConfigParser
@@ -98,10 +99,11 @@ class Netsav:
       system_logger.error("Unable to load configuration from file: %s", 
                                                     self._config_file)
       return False
-    self.setLogLevel(self._configparser.getLogLevel())
-    self.setLogTarget(self._configparser.getLogTarget())
+    self.setLogLevel(self._configparser.getOptLogLevel())
+    self.setLogTarget(self._configparser.getOptLogTarget())
     if_ignore_own = self._configparser.getOptIgnoreOwn()
-
+    
+    #print(self._configparser.getOptGid())
     # Turn in daemon mode
     if self._to_daemon:
       system_logger.debug("Starting in daemon mode")
@@ -138,6 +140,7 @@ class Netsav:
     self._server = Server(conf_dict = self._configparser.getServerConfigDict())
     if self._server.start():
       # Run the main loop
+      self._downgrade()
       self.run()
 
     # Remove the pid file
@@ -161,9 +164,17 @@ class Netsav:
     try:
       if self.hasClient():
         for c in self._l_client:
-          c.start()
-      self._server.getServerInstance().serve_forever()
-    except (KeyboardInterrupt, SystemExit):
+          c.start()  
+        httpd = self._server.getServerInstance()
+        while True:
+          httpd.timeout = 1
+          httpd.handle_request()
+          self.getTrigger().serve()
+      else:
+        self._server.getServerInstance().serve_forever()
+    except SystemExit:
+      return
+    except KeyboardInterrupt:
       system_logger.error('## Abnormal termination ##')
 
   def stop(self):
@@ -171,11 +182,24 @@ class Netsav:
     
     It is call by start() et signalHandling functions
     """
-    system_logger.debug('Stoping all subthread')
+    # Tell to all thread to stop them at the next second
+    system_logger.debug('Send stop to all subthread')
     for t in threading.enumerate():
       n = t.getName()
       if n != "MainThread":
-        t.exit()
+        t.exit()    
+
+    # ensure that all of them have exit, and add eventual event to trig queue
+    system_logger.debug('Waiting for all subthread exiting')
+    while (threading.enumerate().__len__()) > 1:
+      self.getTrigger().serve()
+      time.sleep(0.5)
+    
+    # serve all event which have not already been serve
+    system_logger.debug('Purge and serve all event in the queue')
+    while (self.getTrigger().serve()):
+      pass
+    
     # Close log
     logging.shutdown()
 
@@ -189,6 +213,22 @@ class Netsav:
     """
     system_logger.debug("Caught system signal %d", signum)
     sys.exit(1)
+    
+  def _downgrade(self):
+    """Downgrade netsav privilege to another uid/gid
+    """
+    uid = self._configparser.getOptUid()
+    gid = self._configparser.getOptGid()
+  
+    try:
+      if not gid is None:
+        system_logger.debug("Setting process group to gid %d", gid)
+        os.setgid(gid)
+      if not uid is None:
+        system_logger.debug("Setting process user to uid %d", uid)  
+        os.setuid(uid)
+    except PermissionError:
+      system_logger.error('Insufficient privileges to set process id')
 
   def _daemonize(self):
     """Turn the service as a deamon

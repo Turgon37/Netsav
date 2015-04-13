@@ -24,6 +24,7 @@
 
 # System imports
 import logging
+from queue import Queue
 
 # Projet Imports
 
@@ -43,6 +44,8 @@ class TriggerLoader:
     """
     # Config object
     self._configparser = None
+    # Initialize queue
+    self._queue = Queue()
     # name used to identify specific trigger
     self._name = __name__
     
@@ -121,7 +124,7 @@ class TriggerLoader:
                   msg = 'unknown', 
                   brief = 'unknown',
                   tag = 'unknown'):
-    """Receive a trig event from client
+    """Receive a trig event from client and stack it on queue
     
     @param(dict) value : a set of value to pass to the trigger
     @param(string) msg : a string which describe the event
@@ -145,6 +148,20 @@ class TriggerLoader:
     if 'tag' not in value:
       value['tag'] = tag
 
+    system_logger.debug('['+self._name+'] Trigger queued for client ['
+      +value['name']+']')
+    self._queue.put_nowait(value)
+    return True
+    
+  def serve(self):
+    """Trigger serve call trig an event from the queue if exist
+    
+    @return(boolean) : True if a trigger has been serve
+                        False there is no trigger in queue
+    """
+    if self._queue.empty():
+      return False
+    value = self._queue.get_nowait()
     system_logger.info('['+self._name+'] Trigger for client ['
       +value['name']+']')
     self.trigAll(value)
@@ -155,6 +172,8 @@ class TriggerLoader:
     
     @param(dict) value : a set of value to pass to all trigger
     """
+    if value is None:
+      return
     for t in self._l_trigger:
       try:
         t.do(value)

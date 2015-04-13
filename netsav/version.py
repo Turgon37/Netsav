@@ -23,5 +23,13 @@
 # SOFTWARE.
 
 """This file contain the program version and release notes
+
+versions_notes :
+  version 1.1 : 2015-02-08
+    +add a queue for store trigger event, allow more multiple client to make event simultaneous
+      it(s now the server thread who run trig one by one
+    +add setuid and setgid option to downgrade service privileges
+  version 1.0 : 2015-01-29
+    first release
 """
-version = '1.0'
+version = '1.1'

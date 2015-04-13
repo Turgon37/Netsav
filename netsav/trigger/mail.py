@@ -94,10 +94,12 @@ class Trigger(TriggerHandler):
     try:
       if conf['ssl'] in self.BOOL_TRUE_MAP:
         m = smtplib.SMTP_SSL(host = conf['server'], 
-                              port = conf['port'])
+                              port = conf['port'],
+                              timeout = 1)
       else:
         m = smtplib.SMTP(host = conf['server'], 
-                  port = conf['port'])
+                          port = conf['port'],
+                          timeout = 1)
     except socket_error as e:
       if self._logger:
         self._logger.error('Trigger "'+self.getName()+
