@@ -1,0 +1,10 @@
+Package: netsav
+Version: 1.2.0
+Section: net
+Priority: optional
+Architecture: all
+Depends: python3.2 (>= 3.2), python3.2-dev (>= 3.2)
+Maintainer: Pierre GINDRAUD <pgindraud@gmail.com>
+Description: NETwork System Availability Verifier
+ A network system availability checker for remote host over Internet (as exemple)
+Homepage: https://github.com/Turgon37/Netsav

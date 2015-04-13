@@ -30,48 +30,40 @@ from queue import Queue
 
 
 # Global project declarations
-system_logger = logging.getLogger('netsav')
+sys_log = logging.getLogger('netsav')
 
 class TriggerLoader:
   """A object who load all trigger defined in config file
   """
-  
-  def __init__(self, name = None, configparser = None):
+
+  def __init__(self):
     """Constructor : Build a server object that will open
-    
-    @param(netsav.configparser) configparser :
-        The configparser object to use for get all parameter from config file
     """
     # Config object
-    self._configparser = None
+    self._cp = None
     # Initialize queue
     self._queue = Queue()
-    # name used to identify specific trigger
-    self._name = __name__
-    
-    if name:
-      self._name = name
-    if configparser:
-      self._configparser = configparser
+    # list of trigger object for handling
     self._l_trigger = []
-      
-  def load(self):
+
+  def load(self, config_parser):
     """Load this trigger object with all defined trigger
     
-    @return(boolean) : True if the loading success
+    @param[ConfigParser] : the config parser object from which retrieve configuration
+    @return[boolean] : True if the loading success
                       False otherwise
     """
-    if not self._configparser.isLoaded():
+    if not config_parser.isLoaded():
       return False
-      
+
     # parse all trigger section in config file
-    for trig_sect in self._configparser.getTriggerSection():
+    for trig_sect in config_parser.getTriggerSection():
       # retrieve the current trigger configuration dict
-      param = self._configparser.getTriggerConfigDict(trig_sect)
+      param = config_parser.getTriggerConfigDict(trig_sect)
       trig_name = param['name']
       # check if the trigger name contains only alpha caracters
       if not param['name'].isalpha():
-        system_logger.error('['+self._name+'] Trigger "'+trig_name+
+        sys_log.error('['+self._name+'] Trigger name "'+trig_name+
                 '" must contains only alphabetical caracters')
         continue
       # import process
@@ -81,30 +73,30 @@ class TriggerLoader:
         t = m.Trigger()
         if not isinstance(t, TriggerHandler):
           # inheritance error
-          system_logger.error('['+self._name+'] Trigger "'+trig_name+
-                      '" does not inherit from TriggerHandler ')
+          sys_log.error('[TRIGGER] Trigger "'+trig_name+
+                      '" must inherit from TriggerHandler class')
           continue
-        t.setLogger(system_logger)
-        if t.load(config = param):
+        t.setLogger(sys_log)
+        if t.load(param):
           self._l_trigger.append(t)
-          system_logger.debug('['+self._name+'] Loaded '+trig_name)
+          sys_log.debug('[TRIGGER] Loaded '+trig_name)
         else:
           # loading error
-          system_logger.error('['+self._name+'] Trigger "'+trig_name+
+          sys_log.error('[TRIGGER] Trigger "'+trig_name+
                       '" cannot be load')
-      except ImportError:        
-        system_logger.error('['+self._name+'] Trigger "'+trig_name+
+      except ImportError:
+        sys_log.error('[TRIGGER] Trigger "'+trig_name+
                   '" name cannot be found in trigger directory')
       except NotImplementedError as e:
-        system_logger.error('['+self._name+'] Trigger "'+trig_name+
+        sys_log.error('[TRIGGER] Trigger "'+trig_name+
                     '" must implement the method "'+str(e)+'"')
       except KeyError as e:
-        system_logger.error('['+self._name+'] Trigger "'+trig_name+
+        sys_log.error('[TRIGGER] Trigger "'+trig_name+
                     '" require '+str(e)+' missing parameters see trigger '+
                     'documentation')
       except Exception as e:
-        system_logger.error('['+self._name+'] Trigger "'+trig_name+
-                    '" has encounter an error: '+str(e))
+        sys_log.error('[TRIGGER] Trigger "'+trig_name+
+                    '" has encounter an unknown error: '+str(e))
 
     # return false if no trigger have been loaded
     return self.hasTrigger()
@@ -112,25 +104,22 @@ class TriggerLoader:
   def hasTrigger(self):
     """Check if there is/are registered trigger
     
-    @return(boolean) : True if this contains at least one trigger
+    @return[boolean] : True if th trigger handler contains at least one trigger
                        False otherwise
     """
-    if len(self._l_trigger) > 0:
-      return True
-    else:
-      return False
+    return len(self._l_trigger) > 0
 
   def trig(self, value = None, 
-                  msg = 'unknown', 
-                  brief = 'unknown',
-                  tag = 'unknown'):
+                  msg = 'No message', 
+                  brief = 'No brief',
+                  tag = 'NETSAV'):
     """Receive a trig event from client and stack it on queue
-    
+
     @param(dict) value : a set of value to pass to the trigger
     @param(string) msg : a string which describe the event
     @param(string) brief : a brief string which fill the subject
     @param(string) tag : a tag to put in front of notification
-    @return(boolean) : True if trig action success
+    @return(boolean) : True if event successfully queued
                        False otherwise
     """
     if not self.hasTrigger():
@@ -148,26 +137,35 @@ class TriggerLoader:
     if 'tag' not in value:
       value['tag'] = tag
 
-    system_logger.debug('['+self._name+'] Trigger queued for client ['
+    sys_log.debug('[TRIGGER] Event queued for client ['
       +value['name']+']')
-    self._queue.put_nowait(value)
+    self._queue.put(value)
     return True
+
+  def serve_once(self):
+    """Handle only one event from the queue if available
     
-  def serve(self):
-    """Trigger serve call trig an event from the queue if exist
-    
-    @return(boolean) : True if a trigger has been serve
+    @return[boolean] : True if a trigger has been serve
                         False there is no trigger in queue
     """
     if self._queue.empty():
       return False
     value = self._queue.get_nowait()
-    system_logger.info('['+self._name+'] Trigger for client ['
+    sys_log.info('[TRIGGER] Trigger for client ['
       +value['name']+']')
-    self.trigAll(value)
+    self._do(value)
     return True
     
-  def trigAll(self, value):
+  def serve(self):
+    """Handle all event from the queue undefinitly
+    """
+    while True:
+      value = self._queue.get(True)
+      sys_log.info('[TRIGGER] Trigger for client ['
+        +value['name']+']')
+      self._do(value)
+
+  def _do(self, value):
     """Send a trig event to all registered trigger objects
     
     @param(dict) value : a set of value to pass to all trigger
@@ -176,13 +174,15 @@ class TriggerLoader:
       return
     for t in self._l_trigger:
       try:
-        t.do(value)
+        if not t.do(value):
+          sys_log.error('[TRIGGER] Trigger "'+t.getName()+
+                      '" has encounter an error during do()')
       except KeyError as e:
-        system_logger.error('['+self._name+'] Trigger "'+t.getName()+
+        sys_log.error('[TRIGGER] Trigger "'+t.getName()+
                     '" require a missing parameters "'+str(e)+
                     '" see trigger documentation')
       except Exception as e:
-        system_logger.error('['+self._name+'] Trigger "'+t.getName()+
+        sys_log.error('['+self._name+'] Trigger "'+t.getName()+
                     '" has encounter an error: '+str(e))
 
 class TriggerHandler:
@@ -197,7 +197,7 @@ class TriggerHandler:
     """
     self._config = None
     self._logger = None
-  
+
   def getName(self):
     """Return the name (type) of this trigger
     
@@ -207,23 +207,23 @@ class TriggerHandler:
       if 'name' in self._config:
         return self._config['name']
     return 'unknown'
-  
-  def setLogger(self, logger = None):
+
+  def setLogger(self, logger):
     """Use to set a internal logger for this trigger
     
-    @param(logging object) logger : the logger object to use
+    @param[logging object] logger : the logger object to use
     """
     if logger:
       self._logger = logger
-    
-  def load(self, config = None):
+
+  def load(self, config):
     """(To overload)Function that load this trigger configuration 'config' dict
     
-    @param(dict) config :the dict which contains the key value parameters
-    @return(boolean) :  True if load success
+    @param[dict] config :the dict which contains the key value parameters
+    @return[boolean] :  True if load success
                         False otherwise
     """
-    raise NotImplementedError('load')
+    self._config = config
 
   def do(self, value = None):
     """(To overload)The called function when an event must be trigged by this

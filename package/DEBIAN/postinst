@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ -x "/etc/init.d/netsav" ]; then
+  update-rc.d netsav defaults >/dev/null
+  invoke-rc.d netsav start || exit $?
+fi
+
+exit 0

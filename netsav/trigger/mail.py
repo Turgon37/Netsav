@@ -36,17 +36,20 @@ from trigger.trigger import TriggerHandler
 class Trigger(TriggerHandler):
   """A simple mail trigger which send a mail to someone
   """
+  
+  def __init__(self):
+    """(override)Default constructor: 
+    """
+    TriggerHandler.__init__(self)  
+
+  def load(self, config):
+    """(override)Load the mail trigger with configuration
     
-  def load(self, config = None):
-    """Constructor : Build a mail request
-    
-    @param(dict) config : the dict which contains all required parameters
-    @return(boolean) :  True if load success
+    @param[dict] config : the dict which contains all required parameters
+    @return[boolean] :  True if load success
                         False otherwise
     """
-    if not config:
-      return False
-    
+    TriggerHandler.load(self, config)    
     if 'sender' not in config or 'recipient' not in config:
       if self._logger:
         self._logger.error('Trigger "'+self.getName()+
@@ -77,10 +80,8 @@ class Trigger(TriggerHandler):
       config['body'] = (
         'Hi,\n\n{message}\n\nRegards,\nNETSAV Network monitoring system'
         )
-        
-    self._config = config
     return True
-    
+
   def do(self, value = None):
     """The run statement function, call when an event must be trigged by this
     

@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 
-# This file is a part of netsav
+# This file is a part of HttpTeepotReply
 #
 # Copyright (c) 2014-2015 Pierre GINDRAUD
 # 
@@ -22,6 +22,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""This file contain the program version
+"""This file contain the program version and release notes
+
+versions_notes :
+  version 1.1 : 2015-02-08
+    + add option to disable client request logging
+  version 1.0 : 2015-01-23
+    first release
 """
-version = '1.2.0'
+version = '1.1'
+
+

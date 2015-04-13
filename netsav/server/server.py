@@ -25,70 +25,102 @@
 # System imports
 import logging
 from socket import error as Error
+from threading import Thread
 
 # Projet Imports
 from httpteepotreply.httpteepotreply import HttpTeepotReply
 
 # Global project declarations
-system_logger = logging.getLogger('netsav')
+sys_log = logging.getLogger('netsav')
 
-class Server:
+class Server(Thread):
   """Simple HTTP Server class that make light answer to http queries
   """
-  
-  def __init__(self, address = None, port = None, conf_dict = None):
+
+  def __init__(self, event):
     """Constructor : Build a server object that will open
     
-    @param(string) address : the address of the server socket
-    @param(int) port : port number
-    @param(dict) config_dict : a dictionnary that contain address and port 
-                                key-value
+    @param[threading.Event] event : the event object which define this tread life state
     """
-    # address and port are not None
-    log_client = True
-    
-    if address and port:
-      self._address = address
-      self._port = port
-    elif isinstance(conf_dict, dict):
-      self._address = conf_dict['address']
-      self._port = conf_dict['port']
-      if 'log_client' in conf_dict:
-        log_client = conf_dict['log_client']
+    # a synchronised event that indicates the continuity of the thread
+    self._stop = event
+    self._log_client = True
+
+    self._address = None
+    self._port = None
+
+    # Server instance
+    self._http = None
+    Thread.__init__(self, name = 'HTTP_SERVER')
+
+  def load(self, config):
+    """
+    @param[dict] config : a dictionnary that contain address and port 
+                                key-value
+    @return[boolean] : True if load success
+                      False otherwise
+    """
+    if isinstance(config, dict):
+      self._address = config['address']
+      self._port = config['port']
+      if 'log_client' in config:
+        self._log_client = config['log_client']
     else:
-      raise Exception('address and port are not valid')
+      raise Exception('Invalid configuration type')
+      return False
+    self._http = HttpTeepotReply(self._address,
+                                self._port,
+                                sys_log,
+                                bind_and_activate = False,
+                                log_client = self._log_client)
+    return True
 
-    # Build an server instance
-    self._http_server = HttpTeepotReply(self._address,
-                                      self._port, system_logger, 
-                                      bind_and_activate = False,
-                                      log_client = log_client)
-
-  
-  def start(self):
-    """ Start the server instance, open socket and bind network
+  def open(self):
+    """Bind network socket
     
+    @return[boolean] : True if bind success
+                        False otherwise
     """
     if not (self._address and self._port):
-      system_logger.error("Invalid server network configuration")
+      sys_log.error('Invalid server network configuration')
       return False
 
     # Open socket separatly for checking bind permissions
-    system_logger.debug('Opening local socket')
     try:
-      self._http_server.server_bind()
-      self._http_server.server_activate()
+      self._http.server_bind()
+      self._http.server_activate()
     except Error:
-      system_logger.error("Unable to open socket on port %s", self._port)
+      sys_log.error("Unable to open socket on port %s", self._port)
       return False
 
     # Run the server
-    system_logger.debug('Starting server instance with %s:%s', 
+    sys_log.debug("Opening local server socket on %s:%s",
                         self._address,
                         self._port)
     return True
     
+  def close(self):
+    """Close network socket
+    """
+    try:
+      self.getServerInstance().socket.close()
+      sys_log.debug('Closing local server socket')
+    except Error:
+      sys_log.error('Unable to close server socket')
+
   def getServerInstance(self):
     """Return the HTTP server instance
     """
-    return self._http_server
+    return self._http
+
+  def run(self):
+    """Run the thread
+    """
+    http = self.getServerInstance()
+    while not self._stop.isSet():
+      http.timeout = 0.5
+      http.handle_request()
+      self._stop.wait(0.5)
+
+    # close the socket
+    self.close()

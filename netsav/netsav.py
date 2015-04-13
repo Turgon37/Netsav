@@ -37,12 +37,13 @@ import time
 
 # Projet Imports
 from config import NetsavConfigParser
+from sync import Sync
 from trigger.trigger import TriggerLoader
 from server.server import Server
 from client.client import Client
 
 # Global project declarations
-system_logger = logging.getLogger('netsav')
+sys_log = logging.getLogger('netsav')
 
 class Netsav:
   """Build a program object, run a server and several clientconfiguration file
@@ -51,108 +52,129 @@ class Netsav:
   run a client thread for each client section of the configuration file
   """
 
-  def __init__(self, daemon = False, config = None, log_level = 'INFO'):
+  def __init__(self, daemon = False, log_level = 'INFO'):
     """Constructor : Build the program lead object
     
-    @param(boolean) daemon : if the server must daemonize
-    @param(string) config : configuration file's path
-    @param(string) log_level : the system minimum logging level for put log
+    @param[string] config : configuration file's path
+    @param[boolean] daemon : if the server must be daemonized (False)
+    @param[string] log_level : the system minimum logging level for put log
                                 message
     """
-    ## Variables definitions
-    self._config_file = config
-    self._configparser = NetsavConfigParser(file = config)
-    
-    self._to_daemon = daemon
+    # config parser
+    self._cp = NetsavConfigParser()
+
+    self._is_daemon = daemon
     # Local entities
     #  server obj
     self._server = None
     #  client thread list
     self._l_client = []
-    self._l_client_name = []
     # log parameters
     self._log_level = None
     self._log_target = None
     # global trigger object to use for client notify
     self._trigger = None
+    # A synchronous event for thread exiting
+    self._event_stop = threading.Event()
+    self._event_stop.clear()
+    # A synchronous event for threading activating
+    self._event_active = threading.Event()
+    self._event_active.set()
+    # New lock instance
+    self._sync = Sync(self._event_active)
     
     ## Initializing
     # Initialise log system
     self.setLogLevel(log_level)
     self.setLogTarget('STDOUT')
 
-  def start(self, pidfile):
+  def load(self, config):
+    """Loading function
+    
+    Use this function to load the configuration file
+    @param[string] config : The path fo the configuration file
+    @return[boolean] : True if success
+                        False otherwise
+    """
+    if config is not None:
+      return self._cp.load(config)
+
+  def start(self, pid_file):
     """Run the service
     
     Daemonize if daemon is True in constructor
-    @param(string) pidfile : pidfile's path
+    @param[string] pid_file : pid file's path
+    @return[boolean] : True is start success
+                      False otherwise
     """
     # Restreint access to only owner
     os.umask(0x0077)
-    
+
     # Installing signal catching function
     signal.signal(signal.SIGTERM, self._sigTERMhandler)
     signal.signal(signal.SIGINT, self._sigTERMhandler)
 
-    # Loading main configuration
-    if self._configparser.load() != True:
-      system_logger.error("Unable to load configuration from file: %s", 
-                                                    self._config_file)
+    # Load configuration
+    if not self._cp.isLoaded():
       return False
-    self.setLogLevel(self._configparser.getOptLogLevel())
-    self.setLogTarget(self._configparser.getOptLogTarget())
-    if_ignore_own = self._configparser.getOptIgnoreOwn()
-    
-    #print(self._configparser.getOptGid())
+    self.setLogLevel(self._cp.getOptLogLevel())
+    self.setLogTarget(self._cp.getOptLogTarget())
+    is_ignore_own = self._cp.getOptIgnoreOwn()
+
+    #print(self._cp.getOptGid())
     # Turn in daemon mode
-    if self._to_daemon:
-      system_logger.debug("Starting in daemon mode")
+    if self._is_daemon:
+      sys_log.debug('Starting in daemon mode')
       if self._daemonize():
-        system_logger.info("Daemon started")
+        sys_log.info('Daemon started')
       else:
-        system_logger.error("Could not create daemon")
-        raise Exception("Could not create daemon")
+        sys_log.error('Could not create daemon')
+        raise Exception('Could not create daemon')
 
     # Create the pid file
     try:
-      system_logger.debug("Creating PID file %s", pidfile)
-      pid_file = open(pidfile, 'w')
+      sys_log.debug("Creating PID file %s", pid_file)
+      pid_file = open(pid_file, 'w')
       pid_file.write(str(os.getpid())+'\n')
       pid_file.close()
     except IOError as e:
-      system_logger.error("Unable to create PID file: %s", pidfile)
+      sys_log.error("Unable to create PID file: %s", pid_file)
 
     # Init clients objects
-    client_config = self._configparser.getClientConfigDict()
-    for name in client_config:
+    client_list = self._cp.getClientConfigDict()
+    for name in client_list:
       # Ignore self hostname declaration
-      if name == socket.gethostname() and if_ignore_own == True:
-        system_logger.debug("Ignoring client %s", name)
+      if is_ignore_own == True and name == socket.gethostname():
+        sys_log.debug("Ignoring client %s", name)
       else:
-        cli = Client(conf_dict = client_config[name], 
-                            trigger = self.getTrigger())
-        if self.pushClient(cli):
-          system_logger.info("Added client : %s", name)
+        cli = Client(self._event_stop, self._event_active, self._sync)
+        if cli.load(client_list[name]) and cli.check():
+          cli.setTrigger(self.getTrigger())
+          self._l_client.append(cli)
+          sys_log.info("Added client : %s", name)
         else:
-          system_logger.error("Failed to add client : %s", name)
+          sys_log.error("Failed to add client : %s", name)
 
     # Init server object
-    self._server = Server(conf_dict = self._configparser.getServerConfigDict())
-    if self._server.start():
+    self._server = Server(self._event_stop)
+    if self._server.load(self._cp.getServerConfigDict()) and self._server.open():
       # Run the main loop
       self._downgrade()
       self.run()
+    else:
+      sys_log.error('Error during server opening')
+    
+    # Stop threads
+    self.stop()
 
     # Remove the pid file
     try:
-      system_logger.debug("Remove PID file %s", pidfile)
-      os.remove(pidfile)
+      sys_log.debug("Remove PID file %s", pid_file)
+      os.remove(pid_file)
     except OSError as e:
-      system_logger.error("Unable to remove PID file: %s", e)
+      sys_log.error("Unable to remove PID file: %s", e)
 
-    # STOP
-    self.stop()
-    system_logger.info("Exiting netsav")
+    sys_log.info("Exiting netsav")
     return True
 
   def run(self):
@@ -162,47 +184,49 @@ class Netsav:
     It only provide the main service loop and It is launch by start()
     """
     try:
+      sys_log.debug("Starting server thread")
+      self._server.start()
+
       if self.hasClient():
+        sys_log.debug("Starting all client thread")
         for c in self._l_client:
-          c.start()  
-        httpd = self._server.getServerInstance()
-        while True:
-          httpd.timeout = 1
-          httpd.handle_request()
-          self.getTrigger().serve()
+          c.start()
+        # serve all trigger
+        sys_log.debug("Waiting on trigger serve")
+        self.getTrigger().serve()
       else:
-        self._server.getServerInstance().serve_forever()
+        sys_log.debug("Waiting on server thread")
+        # wait for server terminate
+        self._server.join()
     except SystemExit:
       return
     except KeyboardInterrupt:
-      system_logger.error('## Abnormal termination ##')
+      sys_log.error('## Abnormal termination ##')
 
   def stop(self):
     """ Stop properly the server after signal received
     
     It is call by start() et signalHandling functions
+    It says to all threadto exit themself
     """
     # Tell to all thread to stop them at the next second
-    system_logger.debug('Send stop to all subthread')
-    for t in threading.enumerate():
-      n = t.getName()
-      if n != "MainThread":
-        t.exit()    
+    sys_log.debug('Send exit command to all thread')
+    # send stop command via synchronised event
+    self._event_stop.set()
 
     # ensure that all of them have exit, and add eventual event to trig queue
-    system_logger.debug('Waiting for all subthread exiting')
+    sys_log.debug('Waiting for all subthread exiting')
     while (threading.enumerate().__len__()) > 1:
-      self.getTrigger().serve()
+      self.getTrigger().serve_once()
       time.sleep(0.5)
     
     # serve all event which have not already been serve
-    system_logger.debug('Purge and serve all event in the queue')
-    while (self.getTrigger().serve()):
+    sys_log.debug('Purge and serve all event in the queue')
+    while (self.getTrigger().serve_once()):
       pass
-    
+
     # Close log
     logging.shutdown()
-
 
   ###
   ### System running functions
@@ -211,24 +235,24 @@ class Netsav:
   def _sigTERMhandler(self, signum, frame):
     """Make the program terminate after receving system signal
     """
-    system_logger.debug("Caught system signal %d", signum)
+    sys_log.debug("Caught system signal %d", signum)
     sys.exit(1)
-    
+
   def _downgrade(self):
     """Downgrade netsav privilege to another uid/gid
     """
-    uid = self._configparser.getOptUid()
-    gid = self._configparser.getOptGid()
+    uid = self._cp.getOptUid()
+    gid = self._cp.getOptGid()
   
     try:
       if not gid is None:
-        system_logger.debug("Setting process group to gid %d", gid)
+        sys_log.debug("Setting process group to gid %d", gid)
         os.setgid(gid)
       if not uid is None:
-        system_logger.debug("Setting process user to uid %d", uid)  
+        sys_log.debug("Setting process user to uid %d", uid)  
         os.setuid(uid)
     except PermissionError:
-      system_logger.error('Insufficient privileges to set process id')
+      sys_log.error('Insufficient privileges to set process id')
 
   def _daemonize(self):
     """Turn the service as a deamon
@@ -312,32 +336,11 @@ class Netsav:
       # removed.  It's therefore recommended that child branches of a fork()
       # and the parent branch(es) of a daemon use _exit().
       os._exit(0) # Exit parent of the first child.
-
     return True
-
 
   ###
   ### Client managment functions
-  ###
-  
-  def pushClient(self, client):
-    """Add a client object to the internal used list
-    
-    Add a client to the list, it should not already exist
-    otherwise it will not be added
-    @param(Client) : the client object to add to the list
-    @return(boolean) : True if add success
-                        False otherwise
-    """
-    if not client.check():
-      return False
-    if client.getName() not in self._l_client_name:
-      self._l_client.append(client)
-      self._l_client_name.append(client.getName())
-      return True
-    else:
-      return False
-
+  ###self._l_client.append(client)
   def hasClient(self):
     """Check if there is/are registered clients
     
@@ -358,19 +361,18 @@ class Netsav:
     @return(netsav.Trigger) if config is being loaded
                 None otherwise
     """
-    if not self._configparser.isLoaded():
+    if not self._cp.isLoaded():
       return None
     if self._trigger is None :
-      t = TriggerLoader('Trigger', configparser = self._configparser)
-      if not t.load():
-        system_logger.warning('No trigger loaded, all event will be drop')
+      t = TriggerLoader()
+      if not t.load(self._cp):
+        sys_log.warning('No trigger loaded, all client event will be drop')
       self._trigger = t
     return self._trigger
 
   ###
   ### Logging functions
   ###
-
   def setLogLevel(self, value):
     """Set the logging level.
     
@@ -381,16 +383,16 @@ class Netsav:
        NOTICE
        INFO
        DEBUG
-    @return(boolean) : True if set success
+    @return[boolean] : True if set success
                         False otherwise
     """
     if self._log_level == value:
       return True
 
     try:
-      system_logger.setLevel(value)
+      sys_log.setLevel(value)
       self._log_level = value
-      system_logger.info("Changed logging level to %s", value)
+      sys_log.info("Changed logging level to %s", value)
       return True
     except AttributeError:
       raise ValueError("Invalid log level")
@@ -428,21 +430,19 @@ class Netsav:
         open(target, "a").close()
         hdlr = logging.handlers.RotatingFileHandler(target)
       except IOError:
-        system_logger.error("Unable to log to " + target)
+        sys_log.error("Unable to log to " + target)
         return False
 
     # Remove all handler
-    for handler in system_logger.handlers:
+    for handler in sys_log.handlers:
       try:
-        system_logger.removeHandler(handler)
+        sys_log.removeHandler(handler)
       except (ValueError, KeyError): # pragma: no cover
-        system_logger.warn("Unable to remove handler %s", str(type(handler)))
+        sys_log.warn("Unable to remove handler %s", str(type(handler)))
 
     hdlr.setFormatter(formatter)
-    system_logger.addHandler(hdlr)
-
+    sys_log.addHandler(hdlr)
     # Sets the logging target.
     self._log_target = target
-    system_logger.info("Changed logging target to %s", target)
-
+    sys_log.info("Changed logging target to %s", target)
     return True

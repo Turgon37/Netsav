@@ -27,13 +27,11 @@
 
 # System imports
 from http.client import HTTPConnection
-import gc
 import logging
 from threading import Thread
-import time
 
 # Global project declarations
-system_logger = logging.getLogger('netsav')
+sys_log = logging.getLogger('netsav')
 
 class Client(Thread):
   """Client class that make a request to check availability of an host
@@ -44,21 +42,13 @@ class Client(Thread):
   UNAVAILABLE = 0
   
   HTTP_METHODS = ['HEAD', 'GET', 'POST']
-  
-  def __init__(self, name = None, address = None, port = None, interval = None,
-                  conf_dict = None, trigger = None):
-    """Constructor : init client object with network parameters
 
-    @param(string) name : the instance name
-    @param(string) address : the address of the server socket
-    @param(int) port : port number
-    @param(int) interval : the number of second between two query to the client
-    @param(dict) conf_dict : a dictionnary that contain address and port key-value
-    @param(netsav.Trigger) trigger : the trigger object on which call 
+  def __init__(self, exit, active, sync = None):
+    """Constructor : init client object
+
+    @param[threading.Event] event : the event object  which define this tread life state
     """
-    # Self config of this client
     # Main parameters
-    def_name = __name__
     self.address = None
     self.port = None
     # Network parameters
@@ -69,73 +59,94 @@ class Client(Thread):
     self.tcp_timeout = 5
     #  the http method as string
     self.query_method = 'HEAD'
+    # define if this client is a reference for internet accessibility
+    self.is_ref = False
     
     # Working value
     #  remaining time before next update
     self._remaining = 0
-    #  looping value
-    self._continue = True
+    #  Exiting condition
+    self._stop = exit
+    #  Life condition
+    self._active = active
+    # A synchronised object to allow inter thread communication
+    self._sync = sync
     #  initial status for this client
     self._state = self.UNKNOWN
     #  trigger object to use for handling event during update
     self._trigger = None
-
-    # config is given by dict
-    if isinstance(conf_dict, dict):
-      if 'name' in conf_dict:
-        def_name = conf_dict['name']
-      if 'address' in conf_dict:
-        self.address = conf_dict['address']
-      if 'port' in conf_dict:
-        self.port = conf_dict['port']
-      if 'interval' in conf_dict:
-        self.interval = conf_dict['interval']
-
-      # Optionnal parameters
-      if 'min_retry' in conf_dict:
-        self.min_retry = conf_dict['min_retry']
-      if 'max_retry' in conf_dict:
-        self.max_retry = conf_dict['max_retry']
-      if 'tcp_timeout' in conf_dict:
-        self.tcp_timeout = conf_dict['tcp_timeout']
-      if 'query_method' in conf_dict:
-        self.query_method = conf_dict['query_method']
-
-    if name:
-      def_name = name
-
-    if address and port:
-      self.address = address
-      self.port = port
-
-    if interval:
-      self.interval = interval
     
-    Thread.__init__(self, name = def_name)  
-    if trigger:
-      self.setTrigger(trigger)
-    system_logger.debug('['+self.getName()+"] run with conf = %s", conf_dict)
+    Thread.__init__(self, name = __name__)
+
+  def load(self, config):
+    """Load client configuration
+    
+    @param[dict] config : a dictionnary that contain address and port 
+                                key-value
+    @return[boolean] : True if load success
+                      False otherwise
+    """
+    # config is given by dict
+    if isinstance(config, dict):
+      if 'name' in config:
+        self.name = config['name']
+      if 'address' in config:
+        self.address = config['address']
+      if 'port' in config:
+        self.port = config['port']
+      if 'interval' in config:
+        self.interval = config['interval']
+      if 'min_retry' in config:
+        self.min_retry = config['min_retry']
+      if 'max_retry' in config:
+        self.max_retry = config['max_retry']
+      if 'tcp_timeout' in config:
+        self.tcp_timeout = config['tcp_timeout']
+      if 'query_method' in config:
+        self.query_method = config['query_method']
+      if 'reference' in config:
+        if config['reference'] == True:
+          self.setReference()
+    else:
+      raise Exception('Invalid configuration type')
+      return False
+    
+    return True
+
+  def check(self):
+    """Check internal client configuration
+    
+    @return[boolean] True if all config parameters are correct
+                    False otherwise
+    """
+    if self.min_retry > self.max_retry:
+      sys_log.error('['+self.getName()
+          +'] min retry is more than max_retry')
+      return False
+    if self.query_method not in self.HTTP_METHODS:
+      sys_log.error('['+self.getName()
+          +'] unknown query method value %s', self.query_method)
+      return False
+    return True
 
   def run(self):
-    """Run the query thread
+    """Run the thread
     """
-    self.resetRemaining()  
-    while self._continue:
-      self.updateState(self.queryState())
-      for i in range(self.getRemaining()):
-        if self._continue == True:
-          time.sleep(1)
-      
-  def exit(self):
-    """Run the query thread
-    """
-    self._continue = False
+    # init the remaining counter
+    self.resetRemaining()
+    # loop until I'm in life
+    while not self._stop.isSet():
+      # allow ref and active client to update their state
+      if self.is_ref or self._active.isSet():
+        self.updateState(self.queryState())
+      # wait for the given time second by second
+      self._stop.wait(self.getRemaining())
 
   def queryState(self):
     """Execute a request for retrieving the associated host's state
-
+    
     Make an HTTP query to determine if the server is reachable or not
-    @return(int) : the server status
+    @return[int] : the server status
     """
     c_retry = 0
     c_success = 0
@@ -151,13 +162,13 @@ class Client(Thread):
         # parsing the result
         res = h.getresponse()
         c_success += 1
-        system_logger.debug('['+self.getName()+'] get server code : %d',
+        sys_log.debug('['+self.getName()+'] get server code : %d',
                                                     res.status)
         # if we have sufficient number of success
         if c_success >= self.min_retry:
           return self.AVAILABLE
       except:
-        system_logger.debug('['+self.getName()+'] unable to reach the host')
+        sys_log.debug('['+self.getName()+'] unable to reach the host')
       finally:
         c_retry += 1
     # if we have reach the max retry amount
@@ -168,16 +179,16 @@ class Client(Thread):
     
     Run trigger if the status have changed
     """
-    current = self.getState()
+    current = self._state
     if current != state:
       self.setState(state)
-      system_logger.info('['+self.getName()
-              +'] Changing status to '+Client.performStateString(state))
+      sys_log.info('['+self.getName()
+              +'] Changing status to '+Client.stateToString(state))
       # run the trigger event
       if self._trigger:
         d = self.getConfigDict()
         d['previous_state'] = current
-        d['previous_state_str'] = Client.performStateString(current)
+        d['previous_state_str'] = Client.stateToString(current)
         # make the message event string
         event = (
           'The network status of ['+
@@ -189,22 +200,12 @@ class Client(Thread):
             brief = 'Turn to '+d['current_state_str'],
             msg = event,
             tag = d['name'])
-
-  def check(self):
-    """Check internal client configuration
-    
-    @return(boolean) True if all config parameters are correct
-                    False otherwise
-    """
-    if self.min_retry >= self.max_retry:
-      system_logger.error('['+self.getName()
-          +'] min retry is more than max_retry')
-      return False
-    if self.query_method not in self.HTTP_METHODS:
-      system_logger.error('['+self.getName()
-          +'] unknown query method value %s', self.query_method)
-      return False
-    return True
+      # Call sync function if this instance is a reference
+      if self.is_ref:
+        if state == self.AVAILABLE:
+          self._sync.referenceUp(self)
+        elif state == self.UNAVAILABLE:
+          self._sync.referenceDown(self)
 
   def getName(self):
     """Return the internal name of this client object
@@ -212,7 +213,10 @@ class Client(Thread):
     @return(string) : the defined name of this client
     """
     if self.name:
-      return self.name
+      if self.is_ref:
+        return 'R:'+self.name
+      else:
+        return self.name
     else:
       return __name__
 
@@ -239,7 +243,7 @@ class Client(Thread):
     if isinstance(remain, int) and remain >= 0:
       self._remaining = remain
     return self.getRemaining()
-    
+
   def setTrigger(self, trigger):
     """Register a trigger object in the internal set
     
@@ -247,10 +251,11 @@ class Client(Thread):
     """
     try:
       getattr(trigger, 'trig')
-      self._trigger = trigger
+      if not self.isReference():
+        self._trigger = trigger
     except AttributeError:
       self._trigger = None
-      system_logger.error('['+self.getName()
+      sys_log.error('['+self.getName()
           +'] the given trigger does not contain trig function')
 
   def resetRemaining(self):
@@ -274,7 +279,29 @@ class Client(Thread):
     if isinstance(state, int):
       self._state = state
     return self.getState()
+
+  def setReference(self):
+    """Set this client as a reference for internet accessibility
     
+    This function does nothing if the sync object is undefined
+    """
+    if self._sync is None:
+      sys_log.warning('['+self.getName()
+          +'] Unable to set this client as reference')
+      return
+    self.is_ref = True
+    self._sync.registerReference(self)
+    # disable the internal trigger, a reference host cannot trig event
+    self._trigger = None
+
+  def isReference(self):
+    """Return the reference statement
+    
+    @return(boolean) : True if this object is a reference
+                    False if it is not
+    """
+    return self.is_ref
+
   def getConfigDict(self):
     """Return the config dict for this client
     
@@ -289,10 +316,10 @@ class Client(Thread):
     c['max_retry'] = self.max_retry
     c['tcp_timeout'] = self.tcp_timeout
     c['current_state'] = self.getState()
-    c['current_state_str'] = Client.performStateString(self.getState())
+    c['current_state_str'] = Client.stateToString(self.getState())
     return c
-    
-  def performStateString(state):
+
+  def stateToString(state):
     """Try to associate a name to a state
     
     @param(int) : the state to perform among these

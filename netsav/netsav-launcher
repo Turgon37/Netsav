@@ -36,8 +36,15 @@ import logging
 import sys
 
 # Projet Import
-sys.path.insert(1, "/usr/share/netsav")
+# Try to import from current directory
+try:
+	from version import version
+except ImportError:
+	sys.path.insert(1, "/usr/share/netsav")
+	from version import version
+
 import netsav
+
 
 class NetsavLauncher:
   """A launcher of the netsav program, run a netsav instance with custom args
@@ -53,21 +60,21 @@ class NetsavLauncher:
     self._argv = None
     self._conf = dict()
     self._conf['background'] = False
-    self._conf['pidfile'] = '/var/run/netsav.pid'
-    self._conf['configfile'] = '/etc/netsav.conf'
+    self._conf['pid_file'] = '/var/run/netsav.pid'
+    self._conf['config_file'] = '/etc/netsav.conf'
     self._conf['log_level'] = 'INFO'
 
-  def showVersion(self):
+  def showVersion():
     """Shows the program version
     """
-    print("netsav version v"+netsav.version)
+    print("netsav version v"+version)
 
   def showUsage(self):
     """Prints command line options
     """
     print('Usage: '+self._argv[0]+' [OPTIONS...]')
     print('')
-    print('NETwork System Availability Verifier v'+netsav.version)
+    print('NETwork System Availability Verifier v'+version)
     print('')
     print('Options :')
     print('    -f, --foreground       run the server on the foreground'
@@ -76,9 +83,9 @@ class NetsavLauncher:
     print('    -d, --debug            show more debug information about server'
             +'running')
     print('    -c <FILE>              path of the configuration file'
-            +'(default to '+self._conf['configfile']+')')
+            +'(default to '+self._conf['config_file']+')')
     print('    -p <FILE>              path of the pidfile'
-            +'(default to '+self._conf['pidfile']+')')
+            +'(default to '+self._conf['pid_file']+')')
     print('    -h, --help             display this help message')
     print('    -V, --version          print the version')
 
@@ -93,16 +100,16 @@ class NetsavLauncher:
       if opt[0] in ['-f', '--foreground']:
         self._conf['background'] = False
       if opt[0] == '-c':
-        self._conf['configfile'] = opt[1]
+        self._conf['config_file'] = opt[1]
       if opt[0] == '-p':
-        self._conf['pidfile'] = opt[1]
+        self._conf['pid_file'] = opt[1]
       if opt[0] in ['-d', '--debug']:
         self._conf['log_level'] = 'DEBUG'
       if opt[0] in ['-h', '--help']:
         self.showUsage()
         sys.exit(0)
       if opt[0] in ['-V', '--version']:
-        self.showVersion()
+        NetsavLauncher.showVersion()
         sys.exit(0)
 
   def start(self, argv):
@@ -125,10 +132,11 @@ class NetsavLauncher:
     self._parseCmdLineOptions(given_options_list)
 
     try:
-      self._program = netsav.Netsav(self._conf['background'],
-                            self._conf['configfile'],
-                            self._conf['log_level'])
-      return self._program.start(self._conf['pidfile'])
+      self._program = netsav.Netsav(self._conf['background'], self._conf['log_level'])
+      if not self._program.load(self._conf['config_file']):
+        logging.getLogger('netsav-launcher').error('Unable to load configuration file')
+        return False
+      return self._program.start(self._conf['pid_file'])
     except Exception as e:
       logging.getLogger('netsav-launcher').exception(e)
       return False

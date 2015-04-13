@@ -29,4 +29,4 @@
 from .netsav import Netsav
 from .version import version
 
-__all__ = ['netsav', 'configparser', 'version', 'trigger']
+__all__ = ['netsav', 'config', 'version', 'sync']

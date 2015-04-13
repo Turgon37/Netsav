@@ -22,5 +22,5 @@ Use the --help comand to view the usage message and the complete list of options
   * HttpTeepotReply (on https://github.com/Turgon37/HttpTeepotReply)
 
 ##### Requires:
-  * python >= 3.2
+  * python3 >= 3.2
   * python3-dev >= 3.2

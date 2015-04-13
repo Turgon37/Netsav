@@ -1,6 +1,6 @@
-# -*- coding: utf8 -*-
+# -*-coding:Utf-8 -*
 
-# This file is a part of netsav
+# This file is a part of HttpTeepotReply
 #
 # Copyright (c) 2014-2015 Pierre GINDRAUD
 # 
@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""This file contain the program version
+"""HttpTeepotReply/httpteepotreply package initializer
 """
-version = '1.2.0'
+
+__all__ = ['httpteepotreply']

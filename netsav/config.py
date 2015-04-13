@@ -41,7 +41,7 @@ from configparser import ConfigParser
 from configparser import Error
 
 # Global project declarations
-system_logger = logging.getLogger('netsav')
+sys_log = logging.getLogger('netsav')
 
 class NetsavConfigParser(ConfigParser):
   """(extend ConfigParser) Set specific function for configuration file parsing
@@ -59,42 +59,42 @@ class NetsavConfigParser(ConfigParser):
                       DEFAULT_SECTION,
                       MAIN_SECTION]
 
-  IPV4_REGEX = '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$'
-  DN_REGEX = '^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$'
+  E_REG_IPV4 = '^((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]).){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[12][0-9]|3[0-2]))?)$'
+
+  E_REG_DN = '^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$'
 
   LOGLEVEL_MAP = ['ERROR', 'WARN', 'INFO', 'DEBUG']
   # value considered as True in the config file
   BOOL_TRUE_MAP = ['true', 'TRUE', 'True', '1']
 
-  def __init__(self, file = None):
-    """Constructor : init the config parser with a config file path
-    
-    @param(string) file : the path of the config file
+  def __init__(self):
+    """Constructor : init a new config parser
     """
     ConfigParser.__init__(self)
-    self._config_file = file
     
     # boolean that indicates if the configparser is available
     self._is_config_loaded = False
 
-  def load(self):
+  def load(self, config):
     """Try to load the configuration file
     
-    @param(string) pidfile : pidfile's path
+    @param(string) file : the path of the config file
     @return(boolean) : True if loading is sucess
                         False if loading fail
     """
     # if file is defined
-    if not self._config_file is None:
-      try:
-        if self._config_file in self.read(self._config_file):
-          self._is_config_loaded = True
-          return True
-      except Error as e:
-        print(e, file=sys.stderr)
-        return False
+    if config is None:
+      return False
+
+    try:
+      if config in self.read(config):
+        self._is_config_loaded = True
+        return True
+    except Error as e:
+      print(e, file=sys.stderr)
+      return False
     return False
-  
+
   def isLoaded(self):
     """Return the load state of this config parser
     
@@ -102,7 +102,7 @@ class NetsavConfigParser(ConfigParser):
               file is loaded or not 
     """
     return self._is_config_loaded
-    
+
   def getClientSection(self):
     """Return the list of client section name
     
@@ -113,7 +113,7 @@ class NetsavConfigParser(ConfigParser):
       if sect not in self.IGNORE_SECTIONS and        re.match(self.TRIGGER_SECTION_REGEX, sect) is None:
         c_list.append(sect)
     return c_list
-    
+
   def getTriggerSection(self):
     """Return the list of trigger section name
     
@@ -141,7 +141,7 @@ class NetsavConfigParser(ConfigParser):
     # defined => check address format
     else:
       if config_dict['log_level'] not in self.LOGLEVEL_MAP:
-        system_logger.error("Incorrect loglevel : '%s' must be in ",
+        sys_log.error("Incorrect loglevel : '%s' must be in ",
                               config_dict['loglevel'], self.LOGLEVEL_MAP)
         return default
       else:
@@ -161,7 +161,7 @@ class NetsavConfigParser(ConfigParser):
     # return given option
     else:
       return config_dict['log_target']
-  
+
   def getOptIgnoreOwn(self):
     """Return ignore_own option
     
@@ -169,7 +169,7 @@ class NetsavConfigParser(ConfigParser):
     """
     return self._getBooleanFromSection(self.MAIN_SECTION,
                                           'ignore_own')
-                                          
+
   def getOptUid(self):
     """Return the uid (int) option from configfile
     
@@ -182,10 +182,10 @@ class NetsavConfigParser(ConfigParser):
     try:
       return pwd.getpwnam(user).pw_uid
     except KeyError:
-      system_logger.error("Incorrect username '%s' read in configuration file",
+      sys_log.error("Incorrect username '%s' read in configuration file",
                             user)
       return None
-    
+
   def getOptGid(self):
     """Return the gid (int) option from configfile
     
@@ -198,7 +198,7 @@ class NetsavConfigParser(ConfigParser):
     try:
       return grp.getgrnam(group).gr_gid
     except KeyError:
-      system_logger.error("Incorrect groupname '%s' read in configuration file",
+      sys_log.error("Incorrect groupname '%s' read in configuration file",
                             group)
       return None
 
@@ -207,29 +207,29 @@ class NetsavConfigParser(ConfigParser):
     
     Get the dict that contains only network information for server binding
     """
-    server_config_dict = dict()
-    server_config_dict['address'] = self._getIpAddressFromSection(
+    conf = dict()
+    conf['address'] = self._getAddressFromSection(
                                           self.SERVER_SECTION)
-    server_config_dict['port'] = self._getIntFromSection(
+    conf['port'] = self._getIntFromSection(
                                           self.SERVER_SECTION, 'port')
-    server_config_dict['log_client'] = self._getBooleanFromSection(
+    conf['log_client'] = self._getBooleanFromSection(
                                           self.SERVER_SECTION,
                                           'log_client',
                                           default = True)
-    return server_config_dict
+    return conf
 
   def getTriggerConfigDict(self, section):
     """Return the dict which contains all value which match with the 'name.'
     
     @return(dict) : the parameters dict
     """
-    config_dict = dict( self.items(section) )
+    conf = dict(self.items(section))
     trig_dict = dict()
     trig_dict['name'] = section.partition('_')[2].lower()
-    for opt in config_dict:
+    for opt in conf:
       if re.match(trig_dict['name']+'.*', opt) is not None:
         opt_name = opt.partition('.')[2]
-        trig_dict[opt_name] = config_dict[opt]
+        trig_dict[opt_name] = conf[opt]
     return trig_dict
 
   def getClientConfigDict(self):
@@ -242,11 +242,10 @@ class NetsavConfigParser(ConfigParser):
     client
     @return(dict(dict)) : a dict of dict
     """
-    
     client_all_config_dict = dict()
     for client_section in self.sections():
       if client_section in self.getClientSection():
-        system_logger.debug("Loading configuration section for client : %s",
+        sys_log.debug("Loading configuration section for client : %s",
                               client_section)
         c_conf = dict()
         c_conf['name'] = client_section
@@ -265,46 +264,14 @@ class NetsavConfigParser(ConfigParser):
         c_conf['query_method'] = self.get(client_section,
                                             'query_method',
                                             fallback = 'HEAD')
-
+        c_conf['reference'] = self._getBooleanFromSection(
+                                              client_section,
+                                              'reference',
+                                              default = False)
         # Add to master dict
         client_all_config_dict[client_section] = c_conf
-        system_logger.debug("read conf = %s", c_conf)
-
+        #sys_log.debug("read conf = %s", c_conf)
     return(client_all_config_dict)
-
-  def _getIpAddressFromSection(self, section = 'DEFAULT',
-                                      option = 'address', 
-                                      default = '0.0.0.0', 
-                                      version = 4):
-    """Return 'address' IP only option from configuration file section specified
-    
-    @param(string) section : name of the file section in which
-    @param(string) option : name of the key which contain address
-    @param(string) default : the default string to return if option
-                              is not declare
-    @param(integer) version : version of IP protocol for secure address matching
-                                (default=4)
-    @return(string) : IP address is it is correct
-                      None otherwise
-    """
-    if option is None:
-      return None
-    config_dict = dict(self.items(section))
-
-    # address option not defined
-    if option not in config_dict:
-      return default
-    # check address format
-    if version == 4:
-      regexp = self.IPV4_REGEX
-    else:
-      regexp = '^$'
-
-    if re.match(regexp, config_dict[option]) is None:
-      system_logger.error("Incorrect bind address read in configuration file: '%s'",  config_dict[option])
-      return None
-
-    return config_dict[option]
 
   def _getAddressFromSection(self, section = 'DEFAULT', 
                                     option = 'address',
@@ -323,26 +290,26 @@ class NetsavConfigParser(ConfigParser):
     """
     if option is None:
       return None
-    config_dict = dict(self.items(section))
+    conf = dict(self.items(section))
 
     # address option not defined
-    if option not in config_dict:
+    if option not in conf:
       return default
 
     # check address format
     # Check if DN string
-    if re.match(self.DN_REGEX, config_dict[option]) is None:
+    if re.match(self.E_REG_DN, conf[option]) is None:
       if version == 4:
-        regexp = IPV4_REGEX
+        regexp = E_REG_IPV4
       else:
         regexp = '^$'
 
       # Check if IPv4
-      if re.match(regexp, config_dict[option]) is None:
-        system_logger.error("Incorrect bind address read in configuration file: '%s'", config_dict[option])
+      if re.match(regexp, conf[option]) is None:
+        sys_log.error("Incorrect bind address read in configuration file: '%s'", conf[option])
         return None
 
-    return config_dict[option]
+    return conf[option]
 
   def _getIntFromSection(self, section = 'DEFAULT', 
                                 option = None,
@@ -357,17 +324,17 @@ class NetsavConfigParser(ConfigParser):
     """
     if option is None:
       return None
-    config_dict = dict(self.items(section))
+    conf = dict(self.items(section))
 
     # value not defined
-    if option not in config_dict:
+    if option not in conf:
       return default
     # check value
     else:
       try:
         return self.getint(section, option)
       except ValueError:
-        system_logger.error("Incorrect option '%s' read in configuration file: '%s'", option, config_dict[option])
+        sys_log.error("Incorrect option '%s' read in configuration file: '%s'", option, conf[option])
         return None
 
   def _getBooleanFromSection(self, section = 'DEFAULT', 

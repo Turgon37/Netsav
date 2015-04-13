@@ -1,0 +1,16 @@
+#!/bin/sh
+
+case "$1" in
+purge|disappear)
+  # Remove configuration
+  rm -f /etc/netsav.conf
+  ;;
+remove|upgrade|failed-upgrade|abort-install|abort-upgrade)
+  # nothing
+  ;;
+esac
+
+update-rc.d netsav remove >/dev/null
+rm -rf /usr/share/netsav
+
+exit 0

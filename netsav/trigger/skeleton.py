@@ -22,6 +22,34 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""This file contain the program version
-"""
-version = '1.2.0'
+# System imports
+
+
+# Projet Imports
+from trigger.trigger import TriggerHandler
+
+class Trigger(TriggerHandler):
+  """A simple trigger skeleton
+  """
+
+  def __init__(self):
+    """(override)Default constructor: 
+    """
+    TriggerHandler.__init__(self)  
+
+  def load(self, config):
+    """(override)Load configuration from conf file
+    
+    @param[dict] config : the dict which contains all required parameters
+    @return[boolean] :  True if load success
+                        False otherwise
+    """
+    TriggerHandler.load(self, config)
+
+  def do(self, value):
+    """This function must be exec action of this trigger
+    
+    This function is called each time an event happen    
+    @return[boolean] :  True if execution success
+                        False otherwise
+    """
