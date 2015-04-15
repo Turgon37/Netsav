@@ -1,9 +1,17 @@
+netsav (1.3.2) wheezy; urgency=high
+
+  * Correct syntax of all python sources
+    Rebuild the trigger hierarchy
+    Fix a syntax error in Sync class
+
+ -- Pierre GINDRAUD <pgindraud@gmail.com> Sat, 15 Apr 23:37:00 CEST 2015
+
 netsav (1.3.1) wheezy; urgency=low
 
   * Fix module class path
     Re organize the launcher and main netsav class to separate correctly the module and the launcher. The netsav module, can be now used as a full independant module
 
- -- Pierre GINDRAUD <pgindraud@gmail.com> Sat, 11 Apr 01:10:05 CEST 2015
+ -- Pierre GINDRAUD <pgindraud@gmail.com> Sat, 15 Apr 17:00:00 CEST 2015
 
 netsav (1.3.0) wheezy; urgency=low
 

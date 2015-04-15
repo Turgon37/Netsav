@@ -3,17 +3,17 @@
 # This file is a part of netsav
 #
 # Copyright (c) 2014-2015 Pierre GINDRAUD
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -42,23 +42,24 @@ import time
 # Projet Imports
 from .config import NetsavConfigParser
 from .sync import Sync
-from .trigger.trigger import TriggerLoader
+from .triggerloader import TriggerLoader
 from .server.server import Server
 from .client.client import Client
 
 # Global project declarations
 sys_log = logging.getLogger('netsav')
 
+
 class Netsav:
   """Build a program object, run a server and several clientconfiguration file
-  
+
   Configuration are read from the config file given to the constructor
   run a client thread for each client section of the configuration file
   """
 
-  def __init__(self, daemon = False, log_level = 'INFO'):
+  def __init__(self, daemon=False, log_level='INFO'):
     """Constructor : Build the program lead object
-    
+
     @param[string] config : configuration file's path
     @param[boolean] daemon : if the server must be daemonized (False)
     @param[string] log_level : the system minimum logging level for put log
@@ -84,12 +85,12 @@ class Netsav:
     # A synchronous event for threading activating
     self.__event_active = threading.Event()
     self.__event_active.set()
-    # New lock instance
+    # New lock instance
     self.__sync = Sync(self.__event_active)
 
   def load(self, config):
     """Loading function
-    
+
     Use this function to load the configuration file
     @param[string] config : The path fo the configuration file
     @return[boolean] : True if success
@@ -104,7 +105,7 @@ class Netsav:
 
   def start(self, pid_path):
     """Run the service
-    
+
     Daemonize if daemon is True in constructor
     @param[string] pid_path : pid file's path
     @return[boolean] : True is start success
@@ -123,7 +124,6 @@ class Netsav:
 
     is_ignore_own = self.cp.getOptIgnoreOwn()
 
-    #print(self._cp.getOptGid())
     # Turn in daemon mode
     if self.is_daemon:
       sys_log.debug('Starting in daemon mode')
@@ -137,7 +137,7 @@ class Netsav:
     try:
       sys_log.debug("Creating PID file %s", pid_path)
       pid_file = open(pid_path, 'w')
-      pid_file.write(str(os.getpid())+'\n')
+      pid_file.write(str(os.getpid()) + '\n')
       pid_file.close()
     except IOError as e:
       sys_log.error("Unable to create PID file: %s", pid_path)
@@ -146,7 +146,7 @@ class Netsav:
     client_list = self.cp.getClientConfigDict()
     for name in client_list:
       # Ignore self hostname declaration
-      if is_ignore_own == True and name == socket.gethostname():
+      if is_ignore_own is True and name == socket.gethostname():
         sys_log.debug("Ignoring client %s", name)
       else:
         cli = Client(self.__event_stop, self.__event_active, self.__sync)
@@ -165,7 +165,7 @@ class Netsav:
       self.run()
     else:
       sys_log.error('Error during server opening')
-    
+
     # Stop threads
     self.stop()
 
@@ -181,7 +181,7 @@ class Netsav:
 
   def run(self):
     """Main loop function
-    
+
     This function is saperated from the start() for old Thread implement needed
     It only provide the main service loop and It is launch by start()
     """
@@ -207,7 +207,7 @@ class Netsav:
 
   def stop(self):
     """ Stop properly the server after signal received
-    
+
     It is call by start() et signalHandling functions
     It says to all threadto exit themself
     """
@@ -221,18 +221,18 @@ class Netsav:
     while (threading.enumerate().__len__()) > 1:
       self.getTrigger().serve_once()
       time.sleep(0.5)
-    
+
     # serve all event which have not already been serve
     sys_log.debug('Purge and serve all event in the queue')
     while (self.getTrigger().serve_once()):
       pass
-    
+
     # Close log
     logging.shutdown()
 
-  ###
-  ### System running functions
-  ###
+  #
+  # System running functions
+  #
 
   def __sigTERMhandler(self, signum, frame):
     """Make the program terminate after receving system signal
@@ -245,20 +245,20 @@ class Netsav:
     """
     uid = self.cp.getOptUid()
     gid = self.cp.getOptGid()
-  
+
     try:
-      if not gid is None:
+      if gid is not None:
         sys_log.debug("Setting process group to gid %d", gid)
         os.setgid(gid)
-      if not uid is None:
-        sys_log.debug("Setting process user to uid %d", uid)  
+      if uid is not None:
+        sys_log.debug("Setting process user to uid %d", uid)
         os.setuid(uid)
     except PermissionError:
       sys_log.error('Insufficient privileges to set process id')
 
   def __daemonize(self):
     """Turn the service as a deamon
-    
+
     Detach a process from the controlling terminal
     and run it in the background as a daemon.
     See : http://code.activestate.com/recipes/278731/
@@ -273,7 +273,7 @@ class Netsav:
     except OSError as e:
       return ((e.errno, e.strerror))
 
-    if (pid == 0): # The first child.
+    if (pid == 0):  # The first child.
       # To become the session leader of this new session and the process group
       # leader of the new process group, we call os.setsid().  The process is
       # also guaranteed not to have a controlling terminal.
@@ -337,15 +337,15 @@ class Netsav:
       # streams to be flushed twice and any temporary files may be unexpectedly
       # removed.  It's therefore recommended that child branches of a fork()
       # and the parent branch(es) of a daemon use _exit().
-      os._exit(0) # Exit parent of the first child.
+      os._exit(0)  # Exit parent of the first child.
     return True
 
-  ###
-  ### Client managment functions
-  ###self._l_client.append(client)
+  #
+  # Client managment functions
+  #
   def hasClient(self):
     """Check if there is/are registered clients
-    
+
     @return(boolean) : True if list contains at least one client
                        False otherwise
     """
@@ -354,30 +354,30 @@ class Netsav:
     else:
       return False
 
-  ###
-  ### Trigger
-  ###
+  #
+  # Trigger
+  #
   def getTrigger(self):
     """Return the instance of the trigger object
-    
+
     @return(netsav.Trigger) if config is being loaded
                 None otherwise
     """
     if not self.cp.isLoaded():
       return None
-    if self.__trigger is None :
+    if self.__trigger is None:
       t = TriggerLoader()
       if not t.load(self.cp):
         sys_log.warning('No trigger loaded, all client event will be drop')
       self.__trigger = t
     return self.__trigger
 
-  ###
-  ### Logging functions
-  ###
+  #
+  # Logging functions
+  #
   def setLogLevel(self, value):
     """Set the logging level.
-    
+
     @param(CONSTANT) value : the log level according to syslog
        CRITICAL
        ERROR
@@ -390,7 +390,7 @@ class Netsav:
     """
     if self.__log_level == value:
       return True
-      
+
     try:
       sys_log.setLevel(value)
       self.__log_level = value
@@ -398,11 +398,10 @@ class Netsav:
       return True
     except AttributeError:
       raise ValueError("Invalid log level")
-      return False
 
   def setLogTarget(self, target):
     """Sets the logging target
-    
+
     target can be a file, SYSLOG, STDOUT or STDERR.
     @param(string) target : the logging target
       STDOUT
@@ -439,7 +438,7 @@ class Netsav:
     for handler in sys_log.handlers:
       try:
         sys_log.removeHandler(handler)
-      except (ValueError, KeyError): # pragma: no cover
+      except (ValueError, KeyError):
         sys_log.warn("Unable to remove handler %s", str(type(handler)))
 
     hdlr.setFormatter(formatter)

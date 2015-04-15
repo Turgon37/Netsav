@@ -24,37 +24,53 @@
 
 # System imports
 
-
 # Projet Imports
-from .base import TriggerHandler
 
 
-class Trigger(TriggerHandler):
-  """A simple trigger skeleton
+class TriggerHandler:
+  """Abstract class must be a base of an trigger handler class
   """
 
+  # value considered as True in the config file
+  BOOL_TRUE_MAP = ['true', 'TRUE', 'True', '1']
+
   def __init__(self):
-    """(override)Default constructor:
+    """Constructor : Build a specific trigger
     """
-    TriggerHandler.__init__(self)
+    self._config = None
+    self._logger = None
+
+  def getName(self):
+    """Return the name (type) of this trigger
+
+    @return(string) the name of this trigger
+    """
+    if self._config:
+      if 'name' in self._config:
+        return self._config['name']
+    return 'unknown'
+
+  def setLogger(self, logger):
+    """Use to set a internal logger for this trigger
+
+    @param[logging object] logger : the logger object to use
+    """
+    if logger:
+      self._logger = logger
 
   def load(self, config):
-    """(override)Load configuration from conf file
+    """(To overload)Function that load this trigger configuration 'config' dict
 
-    @param[dict] config : the dict which contains all required parameters
+    @param[dict] config :the dict which contains the key value parameters
     @return[boolean] :  True if load success
                         False otherwise
     """
-    TriggerHandler.load(self, config)
+    self._config = config
 
-  def do(self, value):
-    """This function must be exec action of this trigger
+  def do(self, value=None):
+    """(To overload)The called function when an event must be trigged by this
 
-    This function is called each time an event happen
-    @return[boolean] :  True if execution success
-                        False otherwise
-
-    All value field are 'name', 'address', 'port', 'interval', 'min_retry',
-     'max_retry', 'tcp_timeout', 'current_state', 'current_state_str', 
-     'previous_state', 'previous_state_str', 'msg', 'brief', 'tag'
+    @param(dict) value : the dict which contains the key value refer to this
+                          event
     """
+    raise NotImplementedError('do')
