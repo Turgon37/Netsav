@@ -52,4 +52,6 @@ class Trigger(TriggerHandler):
     This function is called each time an event happen    
     @return[boolean] :  True if execution success
                         False otherwise
+                        
+    All value field are 'name', 'address', 'port', 'interval', 'min_retry', 'max_retry', 'tcp_timeout', 'current_state', 'current_state_str', 'previous_state', 'previous_state_str', 'msg', 'brief', 'tag'
     """

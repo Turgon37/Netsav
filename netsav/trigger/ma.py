@@ -1,4 +1,4 @@
-# -*-coding:Utf-8 -*
+# -*- coding: utf8 -*-
 
 # This file is a part of netsav
 #
@@ -22,12 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""NETSAV package initializer
-"""
+# System imports
+#import logging
 
-# Project imports
-from . import netsav
-from .version import version
-from .netsav import Netsav
-
-__all__ = ['netsav', 'config', 'version', 'sync']
+print('yellow')

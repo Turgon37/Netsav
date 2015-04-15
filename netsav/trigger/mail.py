@@ -31,7 +31,7 @@ import socket
 
 
 # Projet Imports
-from trigger.trigger import TriggerHandler
+from .trigger import TriggerHandler
 
 class Trigger(TriggerHandler):
   """A simple mail trigger which send a mail to someone

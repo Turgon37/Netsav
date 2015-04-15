@@ -40,11 +40,11 @@ class TriggerLoader:
     """Constructor : Build a server object that will open
     """
     # Config object
-    self._cp = None
+    self.cp = None
     # Initialize queue
-    self._queue = Queue()
+    self.__queue = Queue()
     # list of trigger object for handling
-    self._l_trigger = []
+    self.__l_trigger = []
 
   def load(self, config_parser):
     """Load this trigger object with all defined trigger
@@ -63,12 +63,12 @@ class TriggerLoader:
       trig_name = param['name']
       # check if the trigger name contains only alpha caracters
       if not param['name'].isalpha():
-        sys_log.error('['+self._name+'] Trigger name "'+trig_name+
+        sys_log.error('[TRIGGER] Trigger name "'+trig_name+
                 '" must contains only alphabetical caracters')
         continue
       # import process
       try:
-        m = __import__('trigger.'+trig_name, fromlist = ['Trigger'])
+        m = __import__('netsav.trigger.'+trig_name, fromlist = ['Trigger'])
         #import netsav.trigger.mail as m
         t = m.Trigger()
         if not isinstance(t, TriggerHandler):
@@ -78,15 +78,15 @@ class TriggerLoader:
           continue
         t.setLogger(sys_log)
         if t.load(param):
-          self._l_trigger.append(t)
-          sys_log.debug('[TRIGGER] Loaded '+trig_name)
+          self.__l_trigger.append(t)
+          sys_log.debug('[TRIGGER] Loaded trigger '+trig_name)
         else:
           # loading error
           sys_log.error('[TRIGGER] Trigger "'+trig_name+
                       '" cannot be load')
-      except ImportError:
+      except ImportError as e:
         sys_log.error('[TRIGGER] Trigger "'+trig_name+
-                  '" name cannot be found in trigger directory')
+                  '" name cannot be found in trigger directory'+str(e))
       except NotImplementedError as e:
         sys_log.error('[TRIGGER] Trigger "'+trig_name+
                     '" must implement the method "'+str(e)+'"')
@@ -107,7 +107,7 @@ class TriggerLoader:
     @return[boolean] : True if th trigger handler contains at least one trigger
                        False otherwise
     """
-    return len(self._l_trigger) > 0
+    return len(self.__l_trigger) > 0
 
   def trig(self, value = None, 
                   msg = 'No message', 
@@ -139,7 +139,7 @@ class TriggerLoader:
 
     sys_log.debug('[TRIGGER] Event queued for client ['
       +value['name']+']')
-    self._queue.put(value)
+    self.__queue.put(value)
     return True
 
   def serve_once(self):
@@ -148,31 +148,31 @@ class TriggerLoader:
     @return[boolean] : True if a trigger has been serve
                         False there is no trigger in queue
     """
-    if self._queue.empty():
+    if self.__queue.empty():
       return False
-    value = self._queue.get_nowait()
+    value = self.__queue.get_nowait()
     sys_log.info('[TRIGGER] Trigger for client ['
       +value['name']+']')
-    self._do(value)
+    self.__do(value)
     return True
     
   def serve(self):
     """Handle all event from the queue undefinitly
     """
     while True:
-      value = self._queue.get(True)
+      value = self.__queue.get(True)
       sys_log.info('[TRIGGER] Trigger for client ['
         +value['name']+']')
-      self._do(value)
+      self.__do(value)
 
-  def _do(self, value):
+  def __do(self, value):
     """Send a trig event to all registered trigger objects
     
     @param(dict) value : a set of value to pass to all trigger
     """
     if value is None:
       return
-    for t in self._l_trigger:
+    for t in self.__l_trigger:
       try:
         if not t.do(value):
           sys_log.error('[TRIGGER] Trigger "'+t.getName()+
@@ -182,7 +182,7 @@ class TriggerLoader:
                     '" require a missing parameters "'+str(e)+
                     '" see trigger documentation')
       except Exception as e:
-        sys_log.error('['+self._name+'] Trigger "'+t.getName()+
+        sys_log.error('[TRIGGER] Trigger "'+t.getName()+
                     '" has encounter an error: '+str(e))
 
 class TriggerHandler:

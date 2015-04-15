@@ -28,7 +28,7 @@ from socket import error as Error
 from threading import Thread
 
 # Projet Imports
-from httpteepotreply.httpteepotreply import HttpTeepotReply
+from ..httpteepotreply.httpteepotreply import HttpTeepotReply
 
 # Global project declarations
 sys_log = logging.getLogger('netsav')
@@ -43,14 +43,14 @@ class Server(Thread):
     @param[threading.Event] event : the event object which define this tread life state
     """
     # a synchronised event that indicates the continuity of the thread
-    self._stop = event
-    self._log_client = True
+    self.__event_stop = event
 
-    self._address = None
-    self._port = None
+    self.address = None
+    self.port = None
+    self.log_client = True
 
     # Server instance
-    self._http = None
+    self.http = None
     Thread.__init__(self, name = 'HTTP_SERVER')
 
   def load(self, config):
@@ -61,18 +61,18 @@ class Server(Thread):
                       False otherwise
     """
     if isinstance(config, dict):
-      self._address = config['address']
-      self._port = config['port']
+      self.address = config['address']
+      self.port = config['port']
       if 'log_client' in config:
-        self._log_client = config['log_client']
+        self.log_client = config['log_client']
     else:
       raise Exception('Invalid configuration type')
       return False
-    self._http = HttpTeepotReply(self._address,
-                                self._port,
+    self.http = HttpTeepotReply(self.address,
+                                self.port,
                                 sys_log,
                                 bind_and_activate = False,
-                                log_client = self._log_client)
+                                log_client = self.log_client)
     return True
 
   def open(self):
@@ -81,22 +81,22 @@ class Server(Thread):
     @return[boolean] : True if bind success
                         False otherwise
     """
-    if not (self._address and self._port):
+    if not (self.address and self.port):
       sys_log.error('Invalid server network configuration')
       return False
 
     # Open socket separatly for checking bind permissions
     try:
-      self._http.server_bind()
-      self._http.server_activate()
+      self.http.server_bind()
+      self.http.server_activate()
     except Error:
-      sys_log.error("Unable to open socket on port %s", self._port)
+      sys_log.error("Unable to open socket on port %s", self.port)
       return False
 
     # Run the server
     sys_log.debug("Opening local server socket on %s:%s",
-                        self._address,
-                        self._port)
+                        self.address,
+                        self.port)
     return True
     
   def close(self):
@@ -111,16 +111,16 @@ class Server(Thread):
   def getServerInstance(self):
     """Return the HTTP server instance
     """
-    return self._http
+    return self.http
 
   def run(self):
     """Run the thread
     """
     http = self.getServerInstance()
-    while not self._stop.isSet():
+    while not self.__event_stop.isSet():
       http.timeout = 0.5
       http.handle_request()
-      self._stop.wait(0.5)
+      self.__event_stop.wait(0.5)
 
     # close the socket
     self.close()

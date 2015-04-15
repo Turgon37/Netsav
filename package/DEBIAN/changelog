@@ -1,0 +1,36 @@
+netsav (1.3.1) wheezy; urgency=low
+
+  * Fix module class path
+    Re organize the launcher and main netsav class to separate correctly the module and the launcher. The netsav module, can be now used as a full independant module
+
+ -- Pierre GINDRAUD <pgindraud@gmail.com> Sat, 11 Apr 01:10:05 CEST 2015
+
+netsav (1.3.0) wheezy; urgency=low
+
+  * Add new feature : define client as reference
+    +add reference feature
+    +improve the trigger hook with a skeleton
+    +fix some bad error message
+    +re parse all code to simplify function name and declarations
+
+ -- Pierre GINDRAUD <pgindraud@gmail.com> Sat, 11 Apr 01:10:05 CEST 2015
+
+netsav (1.2.0) wheezy; urgency=low
+
+  * Change import path dir and fix error to put netsav program in a debian package
+
+ -- Pierre GINDRAUD <pgindraud@gmail.com> Wed, 11 Feb 16:13:02 CEST 2015
+
+netsav (1.1.0) wheezy; urgency=low
+
+  * Improve performance with threading object
+    +add a queue for store trigger event, allow more multiple client to make event simultaneous
+    +add setuid and setgid option to downgrade service privileges
+
+ -- Pierre GINDRAUD <pgindraud@gmail.com> Mon, 08 Feb 16:13:02 CEST 2015
+
+netsav (1.0.0) wheezy; urgency=low
+  
+  * first release
+  
+ -- Pierre GINDRAUD <pgindraud@gmail.com> Thu, 29 Jan 19:13:35 CEST 2015

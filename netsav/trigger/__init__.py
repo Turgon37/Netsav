@@ -22,12 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""NETSAV package initializer
+"""NETSAV/trigger package initializer
 """
 
-# Project imports
-from . import netsav
-from .version import version
-from .netsav import Netsav
-
-__all__ = ['netsav', 'config', 'version', 'sync']
+__all__ = ['trigger']

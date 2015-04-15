@@ -64,17 +64,17 @@ class Client(Thread):
     
     # Working value
     #  remaining time before next update
-    self._remaining = 0
+    self.__remaining = 0
     #  Exiting condition
-    self._stop = exit
+    self.__event_stop = exit
     #  Life condition
-    self._active = active
+    self.__event_active = active
     # A synchronised object to allow inter thread communication
-    self._sync = sync
+    self.__sync = sync
     #  initial status for this client
-    self._state = self.UNKNOWN
+    self.__state = self.UNKNOWN
     #  trigger object to use for handling event during update
-    self._trigger = None
+    self.__trigger = None
     
     Thread.__init__(self, name = __name__)
 
@@ -135,12 +135,12 @@ class Client(Thread):
     # init the remaining counter
     self.resetRemaining()
     # loop until I'm in life
-    while not self._stop.isSet():
+    while not self.__event_stop.isSet():
       # allow ref and active client to update their state
-      if self.is_ref or self._active.isSet():
+      if self.is_ref or self.__event_active.isSet():
         self.updateState(self.queryState())
       # wait for the given time second by second
-      self._stop.wait(self.getRemaining())
+      self.__event_stop.wait(self.getRemaining())
 
   def queryState(self):
     """Execute a request for retrieving the associated host's state
@@ -179,13 +179,13 @@ class Client(Thread):
     
     Run trigger if the status have changed
     """
-    current = self._state
+    current = self.getState()
     if current != state:
       self.setState(state)
       sys_log.info('['+self.getName()
               +'] Changing status to '+Client.stateToString(state))
       # run the trigger event
-      if self._trigger:
+      if self.__trigger:
         d = self.getConfigDict()
         d['previous_state'] = current
         d['previous_state_str'] = Client.stateToString(current)
@@ -196,16 +196,16 @@ class Client(Thread):
           ' change to '+d['current_state_str']
           )
         # call trigger
-        self._trigger.trig(d, 
+        self.__trigger.trig(d, 
             brief = 'Turn to '+d['current_state_str'],
             msg = event,
             tag = d['name'])
       # Call sync function if this instance is a reference
       if self.is_ref:
         if state == self.AVAILABLE:
-          self._sync.referenceUp(self)
+          self.__sync.referenceUp(self)
         elif state == self.UNAVAILABLE:
-          self._sync.referenceDown(self)
+          self.__sync.referenceDown(self)
 
   def getName(self):
     """Return the internal name of this client object
@@ -232,7 +232,7 @@ class Client(Thread):
     
     @return(int) : the remaining time before update this client
     """
-    return self._remaining
+    return self.__remaining
 
   def setRemaining(self, remain):
     """Set the internal remaining time of this client object
@@ -241,7 +241,7 @@ class Client(Thread):
     @return(int) : the remaining time
     """
     if isinstance(remain, int) and remain >= 0:
-      self._remaining = remain
+      self.__remaining = remain
     return self.getRemaining()
 
   def setTrigger(self, trigger):
@@ -252,9 +252,9 @@ class Client(Thread):
     try:
       getattr(trigger, 'trig')
       if not self.isReference():
-        self._trigger = trigger
+        self.__trigger = trigger
     except AttributeError:
-      self._trigger = None
+      self.__trigger = None
       sys_log.error('['+self.getName()
           +'] the given trigger does not contain trig function')
 
@@ -268,7 +268,7 @@ class Client(Thread):
   def getState(self):
     """Get the client instance's state
     """
-    return self._state
+    return self.__state
 
   def setState(self, state):
     """Set the client instance's state
@@ -277,7 +277,7 @@ class Client(Thread):
     @return(int) : the state time
     """
     if isinstance(state, int):
-      self._state = state
+      self.__state = state
     return self.getState()
 
   def setReference(self):
@@ -285,14 +285,14 @@ class Client(Thread):
     
     This function does nothing if the sync object is undefined
     """
-    if self._sync is None:
+    if self.__sync is None:
       sys_log.warning('['+self.getName()
           +'] Unable to set this client as reference')
       return
     self.is_ref = True
-    self._sync.registerReference(self)
+    self.__sync.registerReference(self)
     # disable the internal trigger, a reference host cannot trig event
-    self._trigger = None
+    self.__trigger = None
 
   def isReference(self):
     """Return the reference statement
