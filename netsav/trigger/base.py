@@ -28,11 +28,20 @@
 
 
 class TriggerHandler:
-  """Abstract class must be a base of an trigger handler class
-  """
+  """Abstract class that must be the parent of all trigger handler class
 
-  # value considered as True in the config file
-  BOOL_TRUE_MAP = ['true', 'TRUE', 'True', '1']
+  All trigger are executed consecutively by the main thread who is different
+  from client(s) and server thread
+
+  The constructor must initialise some needed attribut but didn't receive any
+  parameter
+  The getter getName() is an accessor for netsav module during event handling
+  The setter setLogger(logger) is an accessor for netsav module, it provide a
+  door to put a logger object. It permit your trigger to put some log into the
+  main logger system
+  
+  The function load(config) is use by main module to load the configuration into the
+  """
 
   def __init__(self):
     """Constructor : Build a specific trigger
@@ -43,7 +52,8 @@ class TriggerHandler:
   def getName(self):
     """Return the name (type) of this trigger
 
-    @return(string) the name of this trigger
+    This is an accessor for netsav module
+    @return[string] the name of this trigger
     """
     if self._config:
       if 'name' in self._config:
@@ -53,24 +63,45 @@ class TriggerHandler:
   def setLogger(self, logger):
     """Use to set a internal logger for this trigger
 
+    This is an accessor for netsav module
     @param[logging object] logger : the logger object to use
     """
-    if logger:
-      self._logger = logger
+    self._logger = logger
+
+  def setConfiguration(self, config):
+    """Use to setup the internal configuration dict by the netsav module
+
+    This is an accessor for netsav module
+    @param[dict] config : the dict which contains the key value parameters
+    """
+    self._config = config
 
   def load(self, config):
-    """(To overload)Function that load this trigger configuration 'config' dict
+    """(To overload)Function that must load this trigger object
 
-    @param[dict] config :the dict which contains the key value parameters
+    API for netsav module
+    The return value of this function determine if the trigger must
+    be loaded or not. If this return false, the trigger will not be use
     @return[boolean] :  True if load success
                         False otherwise
     """
-    self._config = config
+    raise NotImplementedError('load()')
 
   def do(self, value=None):
     """(To overload)The called function when an event must be trigged by this
 
-    @param(dict) value : the dict which contains the key value refer to this
+    API for netsav module
+    The return value of this function will be looked and some log will be
+    generated if the result is False
+    This function is called each time an event happen. All event contain
+    a set of information about what happen in a python dict. They are available
+    by these key :
+    'name', 'address', 'port', 'interval', 'min_retry',
+     'max_retry', 'tcp_timeout', 'current_state', 'current_state_str',
+     'previous_state', 'previous_state_str', 'msg', 'brief', 'tag'
+    @param[dict] value : the dict which contains the key value refer to this
                           event
+    @return[boolean] :  True if execution success
+                        False otherwise
     """
-    raise NotImplementedError('do')
+    raise NotImplementedError('do(value)')

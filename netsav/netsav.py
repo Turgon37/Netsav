@@ -51,10 +51,12 @@ sys_log = logging.getLogger('netsav')
 
 
 class Netsav:
-  """Build a program object, run a server and several clientconfiguration file
+  """Build an instance of the netsav class
 
-  Configuration are read from the config file given to the constructor
-  run a client thread for each client section of the configuration file
+  This instance must be configured with load() before launched by start() call
+  At least it require a configuration file to load some needed settings
+  This program can be daemonized or not(the default) according to the parameters
+  given during instanciation to constructor
   """
 
   def __init__(self, daemon=False, log_level='INFO'):
@@ -89,9 +91,9 @@ class Netsav:
     self.__sync = Sync(self.__event_active)
 
   def load(self, config):
-    """Loading function
+    """Load configuration function
 
-    Use this function to load the configuration file
+    Use this function to load settings from given configuration file
     @param[string] config : The path fo the configuration file
     @return[boolean] : True if success
                         False otherwise
@@ -104,7 +106,7 @@ class Netsav:
     return False
 
   def start(self, pid_path):
-    """Run the service
+    """Run the service features
 
     Daemonize if daemon is True in constructor
     @param[string] pid_path : pid file's path
@@ -182,8 +184,9 @@ class Netsav:
   def run(self):
     """Main loop function
 
-    This function is saperated from the start() for old Thread implement needed
-    It only provide the main service loop and It is launch by start()
+    This function is seperated from the start() for old Thread implement needed
+    It provide the main service loop and today (in the latest version) it is
+    launch automatically by start()
     """
     try:
       sys_log.debug("Starting server thread")
@@ -206,10 +209,11 @@ class Netsav:
       sys_log.error('## Abnormal termination ##')
 
   def stop(self):
-    """ Stop properly the server after signal received
+    """Stop properly the server after signal received
 
-    It is call by start() et signalHandling functions
-    It says to all threadto exit themself
+    It is call by start() and signal handling functions
+    It says to all thread to exit themself properly and run
+    some system routine to terminate the entire program
     """
     # Tell to all thread to stop them at the next second
     sys_log.debug('Send exit command to all thread')

@@ -34,11 +34,15 @@ sys_log = logging.getLogger('netsav')
 
 
 class TriggerLoader:
-  """A object who load all trigger defined in config file
+  """Trigger loading class
+
+  This class load dynamically some configured trigger according to global
+  configuration file. All value defined in each trigger sections will be passed
+  to the respective trigger class during instanciation
   """
 
   def __init__(self):
-    """Constructor : Build a server object that will open
+    """Constructor : Build a trigger loader object
     """
     # Config object
     self.cp = None
@@ -78,7 +82,8 @@ class TriggerLoader:
                         '" must inherit from TriggerHandler class')
           continue
         t.setLogger(sys_log)
-        if t.load(param):
+        t.setConfiguration(param)
+        if t.load():
           self.__l_trigger.append(t)
           sys_log.debug('[TRIGGER] Loaded trigger ' + trig_name)
         else:

@@ -36,20 +36,23 @@ from .base import TriggerHandler
 class Trigger(TriggerHandler):
   """A simple mail trigger which send a mail to someone
   """
+  # value considered as True in the config file
+  BOOL_TRUE_MAP = ['true', 'TRUE', 'True', '1']
 
   def __init__(self):
     """(override)Default constructor:
     """
     TriggerHandler.__init__(self)
 
-  def load(self, config):
-    """(override)Load the mail trigger with configuration
+  def load(self):
+    """Load configuration from conf file
 
-    @param[dict] config : the dict which contains all required parameters
+    The return value of this function determine if the trigger must
+    be loaded or not. If this return false, the trigger will not be use
     @return[boolean] :  True if load success
                         False otherwise
     """
-    TriggerHandler.load(self, config)
+    config = self._config
     if 'sender' not in config or 'recipient' not in config:
       if self._logger:
         self._logger.error('Trigger "' + self.getName() +

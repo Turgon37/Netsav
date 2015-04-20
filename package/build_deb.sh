@@ -29,7 +29,7 @@ ARCHIVE=${NAME}_${VERSION}_${ARCH}
 # Print a msg to stderr if verbose option is set
 # @param[string] : the msg to write in stderr
 function _error() {
-  echo -e "Error : $@" 1>&2
+  echo -e "Error : $*" 1>&2
 }
 
 # Check if the script is run by root or not. If not, prompt error and exit
@@ -95,12 +95,10 @@ function chmodToRoot() {
 # @param[] : same of the script
 # @return[int] : X the exit code of the script
 function main() {
-  local r
-  
   _isRunAsRoot
   
   ### ARGUMENTS PARSING  
-  for i in `seq $(($#+1))`; do
+  for i in $(seq $(($#+1))); do
     #catch main arguments
     case $1 in
     -*)
@@ -163,13 +161,13 @@ function main() {
   echo ' * Building package...'
   if [[ -n $DPKG_DEB ]]; then
     cd deb
-    $SUDO $DPKG_DEB --build ${NAME}
-    $SUDO mv $NAME.deb ${ARCHIVE}.deb
-    $SUDO chmod 644 ${ARCHIVE}.deb
+    $SUDO "$DPKG_DEB" --build "$NAME"
+    $SUDO mv "$NAME.deb" "${ARCHIVE}.deb"
+    $SUDO chmod 644 "${ARCHIVE}.deb"
     echo "  ==> The final package is available in ${ARCHIVE}.deb"
   else
-    $SUDO tar cfz ${ARCHIVE}.tar.gz $PACKAGE_ROOT
-    $SUDO chmod 644 ${ARCHIVE}.tar.gz
+    $SUDO tar cfz "${ARCHIVE}.tar.gz" "$PACKAGE_ROOT"
+    $SUDO chmod 644 "${ARCHIVE}.tar.gz"
     echo "  ==> The package tree is available in ${ARCHIVE}.tar.gz"
   fi
 }

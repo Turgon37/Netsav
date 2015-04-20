@@ -58,8 +58,9 @@ class NetsavConfigParser(ConfigParser):
   TRIGGER_SECTION_REGEX = '^TRIGGER.*$'
   IGNORE_SECTIONS = [SERVER_SECTION, DEFAULT_SECTION, MAIN_SECTION]
 
-  E_REG_IPV4 = '^((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[12][0-9]|3[0-2]))?)$'
+  E_REG_IPV4 = '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[12][0-9]|3[0-2]))?$'
 
+  # according to RFC 952
   E_REG_DN = '^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$'
 
   LOGLEVEL_MAP = ['ERROR', 'WARN', 'INFO', 'DEBUG']
@@ -72,7 +73,7 @@ class NetsavConfigParser(ConfigParser):
     ConfigParser.__init__(self)
 
     # boolean that indicates if the configparser is available
-    self._is_config_loaded = False
+    self.__is_config_loaded = False
 
   def load(self, config):
     """Try to load the configuration file
@@ -87,7 +88,7 @@ class NetsavConfigParser(ConfigParser):
 
     try:
       if config in self.read(config):
-        self._is_config_loaded = True
+        self.__is_config_loaded = True
         return True
     except Error as e:
       print(e, file=sys.stderr)
@@ -100,7 +101,7 @@ class NetsavConfigParser(ConfigParser):
     @return(boolean) : the boolean that indicates if the config
               file is loaded or not
     """
-    return self._is_config_loaded
+    return self.__is_config_loaded
 
   def getClientSection(self):
     """Return the list of client section name

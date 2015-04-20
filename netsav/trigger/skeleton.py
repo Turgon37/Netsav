@@ -23,6 +23,7 @@
 # SOFTWARE.
 
 # System imports
+# Put here your system needed imports
 
 
 # Projet Imports
@@ -31,30 +32,42 @@ from .base import TriggerHandler
 
 class Trigger(TriggerHandler):
   """A simple trigger skeleton
+
+  You can use it as base for build your own trigger class
   """
 
   def __init__(self):
     """(override)Default constructor:
+
+    !! Keep the call to parent constructor
+    Put here some attribut initialisation
     """
     TriggerHandler.__init__(self)
 
-  def load(self, config):
-    """(override)Load configuration from conf file
+  def load(self):
+    """Load configuration from conf file
 
-    @param[dict] config : the dict which contains all required parameters
+    The return value of this function determine if the trigger must
+    be loaded or not. If this return false, the trigger will not be use
     @return[boolean] :  True if load success
                         False otherwise
     """
-    TriggerHandler.load(self, config)
+    return True
 
   def do(self, value):
-    """This function must be exec action of this trigger
+    """This function must implement the execution of your trigger
 
-    This function is called each time an event happen
+    The return value of this function will be looked and some log will be
+    generated if the result is False
+    This function is called each time an event happen. All event contain
+    a set of information about what happen in a python dict. They are available
+    by these key :
+    'name', 'address', 'port', 'interval', 'min_retry',
+     'max_retry', 'tcp_timeout', 'current_state', 'current_state_str',
+     'previous_state', 'previous_state_str', 'msg', 'brief', 'tag'
+    @param[dict] value : the dict which contains the key value refer to this
+                          event
     @return[boolean] :  True if execution success
                         False otherwise
-
-    All value field are 'name', 'address', 'port', 'interval', 'min_retry',
-     'max_retry', 'tcp_timeout', 'current_state', 'current_state_str', 
-     'previous_state', 'previous_state_str', 'msg', 'brief', 'tag'
     """
+    return True
